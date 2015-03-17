@@ -11,6 +11,8 @@ for graph generation using.
 
 
     $ lein deppy
+    $ google-chrome deppy.html
+Deppy generate in your project folder an html file `deppy.html`.
     
 ##Options:
 Deppy may be controlled with additional options under the `:deppy`
