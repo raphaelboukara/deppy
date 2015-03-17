@@ -1,6 +1,6 @@
-(defproject deppy "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+(defproject deppy "0.1.0"
+  :description "Generates a graph of the dependency hierarchy of a set of clojure/clojurescript files. This uses the clojure.tools.namespace library for namespace parsing and Sankey google chart for graph generation using."
+  :url "https://github.com/raphaelboukara/deppy"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :resource-paths ["src/resources/"]

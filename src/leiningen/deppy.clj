@@ -32,8 +32,8 @@
     (map find-sources-in-dir)
     flatten))
 
-(defn- format-file-graph [[key vec-dependencies]]
-  (map #(do [key %]) vec-dependencies))
+(defn- format-file-graph [[key deps]]
+  (map #(do [key %]) deps))
 
 (defn- format-filter-graph [[key dep]]
   (and (not (nil? (re-find (re-pattern (str (:root-ns @options) "\\.")) (str key))))
@@ -41,34 +41,42 @@
        (empty? (filter #(not (nil? (re-find (re-pattern %) (str key)))) (:ignore-ns @options)))
        (empty? (filter #(not (nil? (re-find (re-pattern %) (str dep)))) (:ignore-ns @options)))))
 
-(defn- format-base-graph [sub-graph]
-  (do [(first sub-graph) (vec (second sub-graph))]))
+(defn- format-base-graph [[key deps]]
+  (do [key (vec deps)]))
 
 (defn- format-graph [graph]
-  (->> (map format-base-graph graph)
-       (map format-file-graph)
-       flatten
-       (partition 2)
-       (filter format-filter-graph)))
+  (->> 
+    graph
+    (map format-base-graph)
+    (map format-file-graph)
+    flatten
+    (partition 2)
+    (filter format-filter-graph)))
 
-(defn- stringify-sub-graph [[k v]]
-  (str "['" k "', '" v "', 1]"))
+(defn- stringify-sub-graph [[key dep]]
+  (str "['" key "', '" dep "', 1]"))
 
 (defn- stringify-graph [graph]
-  (->> (map stringify-sub-graph graph)
-       (string/join ", ")))
+  (->>
+    graph 
+    (map stringify-sub-graph)
+    (string/join ", ")))
 
-(defn- file-deps
-  "Calculates the dependency graph of the namespaces in the given files."
-  [files]
+(defn- file-deps [files]
   (->>
     files
     (ns-file/add-files {})
     ::ns-track/deps
     :dependencies))
 
-(def header-file (-> "header.html" io/resource io/file))
-(def footer-file (-> "footer.html" io/resource io/file))
+(defn- get-content [filename]
+  (-> 
+    filename 
+    io/resource 
+    io/file))
+
+(def header-file (get-content "header.html"))
+(def footer-file (get-content "footer.html"))
 
 (defn- file-to-string [file]
   (slurp file))
@@ -79,14 +87,13 @@
                    graph 
                    (file-to-string footer-file)))))
 
-(defn deppy
-  "Generate an html dependency graph of the namespaces in the project."
-  [project & args]
+(defn deppy [project & args]
   (let [source-files (find-sources (concat (:source-paths project) args))]
     (println "build html...")
     (swap! options merge (:deppy project))
-    (-> source-files 
-        file-deps 
-        format-graph 
-        stringify-graph 
-        html-graph)))
+    (-> 
+      source-files 
+      file-deps 
+      format-graph 
+      stringify-graph 
+      html-graph)))
