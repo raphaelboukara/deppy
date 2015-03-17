@@ -1,5 +1,6 @@
 (ns leiningen.deppy
   (:require
+    [clojure.string :as string]
     [clojure.java.io :as io]
     (clojure.tools.namespace
       [dependency :as ns-dep]
@@ -8,23 +9,15 @@
   (:import
     java.io.File))
 
+(def options (atom
+  {:ignore-ns []
+   :root-ns ""}))
 
-(def default-options
-  {:path "target/ns-deppy.html"
-   :ignore-ns #{}})
-
-
-(defn- clojurescript-file?
-  "Returns true if the file represents a normal ClojureScript source file."
-  [^File file]
+(defn- clojurescript-file? [^File file]
   (and (.isFile file)
        (.endsWith (.getName file) ".cljs")))
 
-
-(defn- find-sources-in-dir
-  "Searches recursively under dir for source files (.clj and .cljs).
-  Returns a sequence of File objects, in breadth-first sort order."
-  [dir]
+(defn- find-sources-in-dir [dir]
   (->>
     (io/file dir)
     file-seq
@@ -32,18 +25,38 @@
                  (ns-file/clojure-file? %)))
     (sort-by #(.getAbsolutePath ^File %))))
 
-
-(defn- find-sources
-  "Finds a list of source files located in the given directories."
-  [dirs]
+(defn- find-sources [dirs]
   (->>
     dirs
     (filter identity)
     (map find-sources-in-dir)
     flatten))
 
+(defn- format-file-graph [[key vec-dependencies]]
+  (map #(do [key %]) vec-dependencies))
+
+(defn- format-filter-graph [[key dep]]
+  (and (not (nil? (re-find (re-pattern (str (:root-ns @options) "\\.")) (str key))))
+       (not (nil? (re-find (re-pattern (str (:root-ns @options) "\\.")) (str dep))))
+       (empty? (filter #(not (nil? (re-find (re-pattern %) (str key)))) (:ignore-ns @options)))
+       (empty? (filter #(not (nil? (re-find (re-pattern %) (str dep)))) (:ignore-ns @options)))))
+
+(defn- format-base-graph [sub-graph]
+  (do [(first sub-graph) (vec (second sub-graph))]))
+
 (defn- format-graph [graph]
-  (mapv #(do [(first %) (vec (second %))]) graph))
+  (->> (map format-base-graph graph)
+       (map format-file-graph)
+       flatten
+       (partition 2)
+       (filter format-filter-graph)))
+
+(defn- stringify-sub-graph [[k v]]
+  (str "['" k "', '" v "', 1]"))
+
+(defn- stringify-graph [graph]
+  (->> (map stringify-sub-graph graph)
+       (string/join ", ")))
 
 (defn- file-deps
   "Calculates the dependency graph of the namespaces in the given files."
@@ -54,43 +67,26 @@
     ::ns-track/deps
     :dependencies))
 
-
-
-(defn read-file []
-  (with-open [r (io/input-stream "header.html")] 
-         (loop [c (.read r)] 
-           (if (not= c -1)
-             (do 
-               (print (char c)) 
-               (recur (.read r)))))))
-
 (def header-file (-> "header.html" io/resource io/file))
 (def footer-file (-> "footer.html" io/resource io/file))
 
-(defn file-to-string [file]
+(defn- file-to-string [file]
   (slurp file))
 
-(defn content-data []
-  (str
-    "{source: 'Microsoft', target: 'Amazon', type: 'licensing'},"
-    "{source: 'Microsoft', target: 'HTC', type: 'licensing'},"
-    "{source: 'Samsung', target: 'Apple', type: 'suit'},"
-    "{source: 'Motorola', target: 'Apple', type: 'suit'},"
-    "{source: 'Nokia', target: 'Apple', type: 'resolved'}"))
-
-(defn write-file []
-  (with-open [w (io/writer  "./deppy.html" :append true)]
+(defn- html-graph [graph]
+  (with-open [w (io/writer  "./deppy.html")]
     (.write w (str (file-to-string header-file) 
-                   (content-data) 
+                   graph 
                    (file-to-string footer-file)))))
 
 (defn deppy
-  "Generate a dependency graph of the namespaces in the project."
+  "Generate an html dependency graph of the namespaces in the project."
   [project & args]
-  (let [source-files (find-sources (concat (:source-paths project) args))
-        graph (file-deps source-files)
-        format (format-graph graph)]
-    #_(mapv println format)
+  (let [source-files (find-sources (concat (:source-paths project) args))]
     (println "build html...")
-    (write-file)
-  ))
+    (swap! options merge (:deppy project))
+    (-> source-files 
+        file-deps 
+        format-graph 
+        stringify-graph 
+        html-graph)))
