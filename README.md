@@ -1,26 +1,27 @@
 # deppy
 
-A Leiningen plugin to do many wonderful things.
+Generates a graph of the dependency hierarchy of a set of clojure files. This
+uses the [clojure.tools.namespace](https://github.com/clojure/tools.namespace)
+library for namespace parsing and [Sankey google chart](https://google-developers.appspot.com/chart/interactive/docs/gallery/sankey)
+for graph generation using.
 
 ## Usage
 
-FIXME: Use this for user-level plugins:
+[![Clojars Project](http://clojars.org/deppy/latest-version.svg)](http://clojars.org/deppy)
 
-Put `[deppy "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your
-`:user` profile, or if you are on Leiningen 1.x do `lein plugin install
-deppy 0.1.0-SNAPSHOT`.
-
-FIXME: Use this for project-level plugins:
-
-Put `[deppy "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your project.clj.
-
-FIXME: and add an example usage that actually makes sense:
 
     $ lein deppy
+    
+##Options:
+Deppy may be controlled with additional options under the `:deppy`
+key in the project map. The available options and their default values are:
+
+```clojure
+:deppy {
+    :ignore-ns ["myproject.xxx" "myproject.yyy"]
+    :root-ns "myproject"}
+```
 
 ## License
 
-Copyright © 2015 FIXME
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+MIT
